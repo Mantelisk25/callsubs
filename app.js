@@ -201,19 +201,74 @@ function setupSTT() {
       ENV.iosNonSafari ? { label: t('copy'), run: () => navigator.clipboard?.writeText(location.href) } : null);
     return;
   }
+  // Phones: start with the classic own-mic recognition (the documented mobile path). Computers: feed
+  // the call's mic track in (verified in desktop Chrome). The health check below swaps if one fails.
+  if (ENV.ios || /Android/.test(ENV.browser)) stt.opts.passTrack = false;
   stt.on('interim', text => {
     setLive('me', text);
     if (!text) return;
+    heardAt = Date.now();
     curId ??= randomId();
     sendInterim({ type: 'interim', speaker: role, lang: me.speechLang, original: text, id: curId, ts: Date.now() });
   });
-  stt.on('final', onOwnFinal);
+  stt.on('final', text => { heardAt = Date.now(); onOwnFinal(text); });
+  stt.on('state', updateSubStatus);
   stt.on('error', ({ code }) => {
+    updateSubStatus();
     if (code === 'not-allowed') showNotice(t('sttBlocked'), { label: t('enableSubs'), run: () => { stt.restart(); startListening(); } });
     else if (code === 'service-not-allowed') showNotice(ENV.ios ? t('iosDictation') : t('sttBlocked'), { label: t('enableSubs'), run: startListening });
-    else if (code === 'audio-capture') showNotice(t('audioCapture'));
   });
   startListening();
+}
+
+// ---------- Subtitle health: plain-language status + automatic fallback ----------
+//
+// If the call mic hears you talking but recognition produces no text, the phone is probably not
+// letting both use the microphone at once. Step 1: swap how recognition gets the mic
+// (own mic <-> call track). Step 2: offer "hold to talk", which frees the mic completely.
+
+let heardAt = 0, voicedSecs = 0, fallbackStep = 0;
+
+function checkSubtitleHealth() {
+  if (!stt?.isSupported || !micOn || mode === 'ptt' || !connected) { voicedSecs = 0; return; }
+  const talking = lastStats.outLevel != null && lastStats.outLevel > 0.02;
+  const heardRecently = Date.now() - heardAt < 4000;
+  voicedSecs = talking && !heardRecently ? voicedSecs + 2 : heardRecently ? 0 : Math.max(0, voicedSecs - 1);
+  const failing = stt.failStreak >= 3;
+  if (voicedSecs < 8 && !failing) return;
+  voicedSecs = 0;
+  if (fallbackStep === 0) {
+    fallbackStep = 1;
+    stt.opts.passTrack = !stt.opts.passTrack;
+    stt.trackDisabled = false;
+    $('dTrack').textContent = `Track input: ${stt.opts.passTrack ? 'on' : 'off'}`;
+    log('app', `no subtitles while talking -> trying ${stt.opts.passTrack ? 'call track' : 'own mic'} input`);
+    stt.stop();
+    setTimeout(startListening, 400);
+  } else if (fallbackStep === 1) {
+    fallbackStep = 2;
+    log('app', 'still no subtitles -> offering hold-to-talk');
+    setMode('ptt');
+    showNotice(t('pttOffer'));
+  }
+}
+
+function updateSubStatus() {
+  const el = $('subStatus');
+  let text;
+  if (!stt?.isSupported) text = t('ssUnsupported');
+  else if (mode === 'ptt') text = pttHeld ? t('ssPttListening') : t('ssPtt');
+  else if (!micOn) text = t('ssMicOff');
+  else if (stt.lastError && stt.failStreak > 0) text = `${t('ssProblem')} (${stt.lastError.split(' @')[0]})`;
+  else if (stt.state === 'listening') text = Date.now() - heardAt < 5000 ? t('ssHearing') : t('ssListening');
+  else text = t('ssStarting');
+  if (connected && remoteDiag) {
+    const r = remoteDiag;
+    const ok = r.listening === 'yes' || /push-to-talk|ptt/.test(r.sttMode || '');
+    text += ` · ${t('ssOther')}: ${r.sttSupported?.startsWith('NO') ? t('ssOtherNo') : ok ? '✓' : `⚠ ${r.sttLastError && r.sttLastError !== '-' ? r.sttLastError.split(' @')[0] : t('ssOtherIdle')}`}`;
+  }
+  el.textContent = text;
+  el.hidden = false;
 }
 
 function startListening() {
@@ -354,27 +409,36 @@ $('btnEnd').onclick = () => endCall(false);
 $('btnUnmute').onclick = () => { $('remoteVideo').play().then(() => { $('btnUnmute').hidden = true; }).catch(() => {}); };
 $('btnReconnect').onclick = () => { $('btnReconnect').hidden = true; setStatus(t('connecting')); call?.dial(); };
 
-// Push-to-talk: while held, the call mic is muted so recognition has the microphone to itself.
+// Push-to-talk: while held, the call fully releases the mic so recognition has it to itself
+// (the other person doesn't hear you during that time); on release the call takes it back.
 const ptt = $('btnPtt');
 const pttDown = e => {
   e.preventDefault();
   if (pttHeld || !stt?.isSupported) return;
+  try { ptt.setPointerCapture(e.pointerId); } catch {}
   pttHeld = true;
   ptt.classList.add('active');
-  if (call?.audioTrack) call.audioTrack.enabled = false;
+  call?.releaseMic();
   stt.start(null);
+  updateSubStatus();
 };
-const pttUp = () => {
+const pttUp = async () => {
   if (!pttHeld) return;
   pttHeld = false;
   ptt.classList.remove('active');
   stt.stop();
-  if (call?.audioTrack) call.audioTrack.enabled = micOn;
+  updateSubStatus();
+  try {
+    const track = await call.reacquireMic();
+    track.enabled = micOn;
+    watchTrack(track);
+  } catch (e) {
+    log('app', `could not take the mic back: ${e.name} ${e.message}`);
+  }
 };
 ptt.addEventListener('pointerdown', pttDown);
 ptt.addEventListener('pointerup', pttUp);
 ptt.addEventListener('pointercancel', pttUp);
-ptt.addEventListener('pointerleave', pttUp);
 ptt.addEventListener('contextmenu', e => e.preventDefault());
 
 function setMode(m) {
@@ -383,8 +447,9 @@ function setMode(m) {
   $('btnPtt').hidden = m !== 'ptt';
   $('btnMic').hidden = m === 'ptt';
   stt?.stop();
-  if (m === 'continuous') startListening();
+  if (m === 'continuous') { fallbackStep = 0; startListening(); }
   log('app', `mode: ${m}`);
+  updateSubStatus();
 }
 
 // ---------- Diagnostics ----------
@@ -463,6 +528,8 @@ async function tick() {
   if (!call || call.ended) return;
   lastStats = await call.stats();
   if (lastStats.ice === 'failed' && !iceFailNoticed) { iceFailNoticed = true; showNotice(t('iceFailed')); }
+  checkSubtitleHealth();
+  updateSubStatus();
   sendDiag();
   if (!$('diag').hidden) drawDiag();
 }

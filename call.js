@@ -190,11 +190,26 @@ export class Call extends Emitter {
     const fresh = (await navigator.mediaDevices.getUserMedia({ audio: AUDIO })).getAudioTracks()[0];
     fresh.enabled = enabled;
     this.localStream.addTrack(fresh);
-    const pc = this.mc?.peerConnection;
-    const sender = pc?.getTransceivers().find(t => t.sender.track?.kind === 'audio' || t.receiver.track?.kind === 'audio')?.sender;
+    const sender = this.audioSender();
     if (sender) await sender.replaceTrack(fresh);
     log('call', `mic re-acquired${sender ? ' and swapped into the call' : ''}`);
     return fresh;
+  }
+
+  // Phones (Android especially) give the microphone to one user at a time. Muting the call's
+  // track still holds the mic, so "hold to talk" fully releases it, and reacquireMic() takes it back.
+  releaseMic() {
+    const old = this.audioTrack;
+    if (!old) return;
+    old.stop();
+    this.localStream.removeTrack(old);
+    this.audioSender()?.replaceTrack(null).catch(() => {});
+    log('call', 'mic released for speech recognition');
+  }
+
+  audioSender() {
+    const pc = this.mc?.peerConnection;
+    return pc?.getTransceivers().find(t => t.sender.track?.kind === 'audio' || t.receiver.track?.kind === 'audio')?.sender || null;
   }
 
   async stats() {

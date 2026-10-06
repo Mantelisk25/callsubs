@@ -71,7 +71,7 @@ button.small { padding: 6px 12px; font-size: 13px; }
 .row button { flex: 1; }
 
 .notice {
-  position: absolute; left: 12px; right: 12px; top: calc(70px + var(--safe-t)); z-index: 5;
+  position: absolute; left: 12px; right: 12px; top: calc(200px + var(--safe-t)); z-index: 5;
   background: rgba(229, 72, 77, 0.92); padding: 10px 12px; border-radius: 10px; font-size: 14px;
   display: flex; gap: 10px; align-items: center; justify-content: space-between;
 }
@@ -101,8 +101,14 @@ button.small { padding: 6px 12px; font-size: 13px; }
   background: rgba(0, 0, 0, 0.6);
 }
 .ctl {
-  width: 56px; height: 56px; padding: 0; display: grid; place-items: center;
+  width: 64px; height: 60px; padding: 4px 0; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   background: rgba(255, 255, 255, 0.16);
+}
+.ctl .lbl { font-size: 11px; line-height: 1; }
+.substatus {
+  position: absolute; left: 12px; right: calc(28vw + 24px); top: calc(56px + var(--safe-t)); z-index: 3;
+  background: var(--panel); padding: 6px 10px; border-radius: 10px; font-size: 13px;
 }
 .ctl svg, .ptt svg { width: 26px; height: 26px; fill: currentColor; }
 .ctl .slash { stroke: currentColor; stroke-width: 2.2; display: none; }
@@ -113,7 +119,8 @@ button.small { padding: 6px 12px; font-size: 13px; }
   display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.16);
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.ptt.active { background: var(--good); color: #000; }
+.ptt { padding: 16px 24px; font-size: 17px; font-weight: 600; background: #238636; }
+.ptt.active { background: #3fb950; color: #000; }
 
 /* Diagnostics */
 #diag {
