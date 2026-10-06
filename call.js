@@ -11,7 +11,8 @@ const AUDIO = { echoCancellation: true, noiseSuppression: true, autoGainControl:
 const VIDEO = { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } };
 
 // Test mode (?fake=1): a moving canvas + quiet tone instead of camera/mic, for devices without them.
-function fakeStream() {
+// With &fakeAudio=a.mp3,b.mp3 (same-site paths) those clips are played as the "mic", in a loop with pauses.
+function fakeStream(audioUrls = []) {
   const canvas = Object.assign(document.createElement('canvas'), { width: 320, height: 240 });
   const g = canvas.getContext('2d');
   let n = 0;
@@ -23,13 +24,31 @@ function fakeStream() {
     g.fillText(`fake ${new Date().toLocaleTimeString()}`, 20, 130);
   }, 100);
   const ac = new AudioContext();
-  const osc = ac.createOscillator();
-  const gain = ac.createGain();
-  gain.gain.value = 0.02;
   const dest = ac.createMediaStreamDestination();
-  osc.connect(gain).connect(dest);
-  osc.start();
+  if (audioUrls.length) {
+    playClips(ac, dest, audioUrls).catch(e => log('call', `fake audio failed: ${e.message}`));
+  } else {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    gain.gain.value = 0.02;
+    osc.connect(gain).connect(dest);
+    osc.start();
+  }
   return new MediaStream([...canvas.captureStream(15).getVideoTracks(), ...dest.stream.getAudioTracks()]);
+}
+
+async function playClips(ac, dest, urls) {
+  const buffers = await Promise.all(urls.map(u => fetch(u).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b))));
+  let at = ac.currentTime + 1;
+  for (let round = 0; round < 20; round++) {
+    for (const buffer of buffers) {
+      const src = ac.createBufferSource();
+      src.buffer = buffer;
+      src.connect(dest);
+      src.start(at);
+      at += buffer.duration + 2.5;
+    }
+  }
 }
 
 export class Call extends Emitter {
@@ -50,8 +69,8 @@ export class Call extends Emitter {
   get audioTrack() { return this.localStream?.getAudioTracks()[0] || null; }
   get videoTrack() { return this.localStream?.getVideoTracks()[0] || null; }
 
-  async getMedia(fake = false) {
-    if (fake) return (this.localStream = fakeStream());
+  async getMedia(fake = false, fakeAudio = []) {
+    if (fake) return (this.localStream = fakeStream(fakeAudio));
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO, video: VIDEO });
     } catch (e) {

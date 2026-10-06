@@ -100,7 +100,8 @@ async function startCall() {
   call.on('data', onData);
 
   try {
-    await call.getMedia(params.get('fake') === '1');
+    const fakeAudio = (params.get('fakeAudio') || '').split(',').filter(u => u && !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(u));   // same-site only
+    await call.getMedia(params.get('fake') === '1', fakeAudio);
   } catch (e) {
     log('app', `getUserMedia failed: ${e.name} ${e.message}`);
     setStatus('');
