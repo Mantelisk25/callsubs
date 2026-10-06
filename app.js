@@ -19,7 +19,7 @@ const role = room && params.get('host') !== '1' ? 'guest' : 'host';
 const otherRole = role === 'host' ? 'guest' : 'host';
 const me = { ...CONFIG.roles[role] };
 if (params.get('speak')) me.speechLang = params.get('speak');
-let remote = { speechLang: CONFIG.roles[otherRole].speechLang };
+let remote = { ...CONFIG.roles[otherRole] };   // replaced by the other side's 'hello'
 setLang(params.get('ui') || me.ui);
 
 let call = null, stt = null;
@@ -85,7 +85,7 @@ async function startCall() {
   show('call');
   applyI18n();
   setStatus(t('starting'));
-  if (role === 'host') warmUpBuiltin(me.speechLang, remote.speechLang);   // needs the tap's user gesture
+  if (role === 'host') warmUpBuiltin(me.readLang, remote.readLang);   // needs the tap's user gesture
 
   call = new Call(role, room);
   call.on('status', onCallStatus);
@@ -93,7 +93,7 @@ async function startCall() {
   call.on('mediaClosed', onRemoteGone);
   call.on('dc', state => {
     if (state === 'open') {
-      call.send({ type: 'hello', role, speechLang: me.speechLang, ui: me.ui, browser: ENV.browser, stt: !!stt?.isSupported });
+      call.send({ type: 'hello', role, speechLang: me.speechLang, readLang: me.readLang, ui: me.ui, browser: ENV.browser, stt: !!stt?.isSupported });
       sendDiag();
     } else onRemoteGone();
   });
@@ -237,9 +237,9 @@ function onOwnFinal(text) {
   queuedInterim = null;
   setLive('me', '');
   call.send({ type: 'final', speaker: role, lang: me.speechLang, original: text, id, ts: Date.now() });
-  const needs = role === 'host' && baseLang(me.speechLang) !== baseLang(remote.speechLang);
+  const needs = role === 'host' && baseLang(me.speechLang) !== baseLang(remote.readLang);
   addLine(id, 'me', text, needs ? '…' : null);
-  if (needs) hostTranslate(id, text, me.speechLang, remote.speechLang);
+  if (needs) hostTranslate(id, text, me.speechLang, remote.readLang);
 }
 
 // All translation happens on the host. Result goes to the local line and to the other side.
@@ -256,7 +256,8 @@ function onData(msg) {
   switch (msg.type) {
     case 'hello':
       remote = { ...remote, ...msg };
-      log('app', `hello from ${msg.role}: ${msg.browser}, speaks ${msg.speechLang}, stt=${msg.stt}`);
+      remote.readLang ??= CONFIG.roles[otherRole].readLang;
+      log('app', `hello from ${msg.role}: ${msg.browser}, speaks ${msg.speechLang}, reads ${remote.readLang}, stt=${msg.stt}`);
       markConnected();
       break;
     case 'interim':
@@ -264,9 +265,9 @@ function onData(msg) {
       break;
     case 'final': {
       setLive('them', '');
-      const needs = baseLang(msg.lang) !== baseLang(me.speechLang);
+      const needs = baseLang(msg.lang) !== baseLang(me.readLang);
       addLine(msg.id, 'them', needs ? '…' : msg.original, needs ? msg.original : null);
-      if (needs && role === 'host') hostTranslate(msg.id, msg.original, msg.lang, me.speechLang);
+      if (needs && role === 'host') hostTranslate(msg.id, msg.original, msg.lang, me.readLang);
       break;
     }
     case 'translation':
@@ -429,7 +430,7 @@ function localDiag() {
   const tr = call?.audioTrack;
   return {
     browser: ENV.browser,
-    speechLang: me.speechLang,
+    speechLang: `${me.speechLang} (subtitles in ${me.readLang})`,
     sttSupported: stt?.isSupported ? `yes (${i.impl})` : 'NO',
     sttMode: mode,
     sttInput: i.input,

@@ -31,9 +31,11 @@ export const CONFIG = {
   myMemoryEmail: '',
 
   // Host = whoever taps "New call". Guest = whoever opens the shared link.
+  // speechLang = what the mic listens for; readLang = what that person's subtitles are shown in.
+  // (?speak=en-US in a URL changes only speechLang, so testing with English still shows Portuguese.)
   roles: {
-    host:  { speechLang: 'en-US', ui: 'en' },
-    guest: { speechLang: 'pt-BR', ui: 'pt' },
+    host:  { speechLang: 'en-US', readLang: 'en-US', ui: 'en' },
+    guest: { speechLang: 'pt-BR', readLang: 'pt-BR', ui: 'pt' },
   },
 
   stt: {
