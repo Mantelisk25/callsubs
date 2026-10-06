@@ -43,6 +43,7 @@ export const CONFIG = {
     restartDelayMs: 300,     // delay before auto-restart; doubles on repeated failures
     maxRestartDelayMs: 5000,
     stallMs: 2500,           // interim text unchanged this long -> force a final (iOS sometimes never finalises)
+    maxUtteranceMs: 8000,    // a sentence still unfinished after this long is cut off and translated
     passTrack: true,         // pass the call's mic track to recognition.start(track) where supported
   },
 

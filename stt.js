@@ -145,7 +145,15 @@ export class WebSpeechSTT extends Emitter {
     }
     interim = this.dedupe(interim);
     if (interim === this.pending) return;
+    if (!this.pending) this.utteranceStart = Date.now();
     this.pending = interim;
+    // Non-stop talking or background noise can keep a sentence "open" forever, and only finished
+    // sentences get translated. Cut it off after maxUtteranceMs.
+    if (interim && this.opts.maxUtteranceMs && Date.now() - this.utteranceStart > this.opts.maxUtteranceMs) {
+      log('stt', 'utterance too long, stopping to force a final');
+      this.utteranceStart = Date.now();
+      try { this.rec.stop(); } catch {}
+    }
     this.emit('interim', interim);
     clearTimeout(this.stallTimer);
     if (interim && this.opts.stallMs) {
@@ -207,12 +215,17 @@ export class WebSpeechSTT extends Emitter {
     if (this.want) this.scheduleRestart();
   }
 
+  // Keeps trying while wanted. A page that looks hidden (e.g. a covered desktop window) is
+  // re-checked every 2 s instead of waiting for a visibility event that may never come.
   scheduleRestart() {
     clearTimeout(this.restartTimer);
-    if (!this.want || document.hidden) return;
-    const delay = Math.min(this.opts.maxRestartDelayMs, this.opts.restartDelayMs * 2 ** this.failStreak);
+    if (!this.want) return;
+    const delay = document.hidden ? 2000 : Math.min(this.opts.maxRestartDelayMs, this.opts.restartDelayMs * 2 ** this.failStreak);
     this.restartTimer = setTimeout(() => {
-      if (this.want && this.state === 'idle' && !document.hidden) { this.restarts++; this.launch(); }
+      if (!this.want || this.state !== 'idle') return;
+      if (document.hidden) { this.scheduleRestart(); return; }
+      this.restarts++;
+      this.launch();
     }, delay);
   }
 
