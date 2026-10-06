@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 import { t, setLang, applyI18n } from './i18n.js';
 import { Call } from './call.js';
 import { createSTT } from './stt.js';
-import { translate, translatorState, warmUpBuiltin } from './translate.js';
+import { translate, translatorState, warmUpBuiltin, startOnDevice, onOnDeviceStatus } from './translate.js';
 import { renderDiag } from './diag.js';
 import { log, getLog, randomId, baseLang, env } from './util.js';
 
@@ -55,6 +55,13 @@ function initHome() {
   if (typeof Peer === 'undefined') warns.push(t('noPeer'));
   $('homeWarn').hidden = !warns.length;
   $('homeWarn').textContent = warns.join(' ');
+
+  // Only the host translates, so only the host downloads the on-device model (once, then cached).
+  if (role === 'host') {
+    onOnDeviceStatus(status => { $('homeTr').textContent = `Offline translator: ${status}`; });
+    $('homeTr').hidden = false;
+    startOnDevice();
+  }
 
   if (role === 'guest') {
     $('btnNew').hidden = true;
@@ -441,6 +448,7 @@ function localDiag() {
     route: lastStats.route,
     rttMs: lastStats.rtt ?? '–',
     translation: role === 'host' ? `${translatorState.provider} (built-in: ${translatorState.builtin})` : 'done by host',
+    onDevice: role === 'host' ? translatorState.onDevice : 'host only',
     trLastError: role === 'host' ? (translatorState.lastError || '-') : '-',
     wakeLock: wakeLock ? 'yes' : 'no',
   };

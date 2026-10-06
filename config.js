@@ -21,6 +21,11 @@ export const CONFIG = {
   // 'all' = normal. 'relay' = force everything through TURN (to prove TURN works).
   iceTransportPolicy: 'all',
 
+  // Directions translated on-device (unlimited, private). The on-device en->pt model sometimes
+  // writes European Portuguese ("estás a fazer"); remove 'enpt' to send that direction to
+  // MyMemory instead (proper Brazilian, but counts toward its daily limit).
+  onDevicePairs: ['enpt', 'pten'],
+
   // MyMemory (fallback translator). An email raises the free limit from ~5k to ~50k chars/day.
   // It is sent as a URL parameter and visible in page source.
   myMemoryEmail: '',

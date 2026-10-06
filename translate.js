@@ -1,14 +1,74 @@
 // Translation behind one function: translate(text, fromTag, toTag) -> Promise<string>.
-// Provider order: Chrome built-in Translator API (desktop Chrome only today) -> MyMemory.
+// Provider order:
+//   1. On-device (Bergamot in a Web Worker): unlimited, private, needs a one-time ~50 MB download
+//   2. Chrome built-in Translator API (desktop Chrome only today)
+//   3. MyMemory (free web API, daily character limit) — used while the on-device model is loading
 // To swap providers later, change only this file.
 
 import { CONFIG } from './config.js';
 import { log, baseLang } from './util.js';
 
-export const translatorState = { provider: 'none yet', builtin: 'unchecked', lastError: '', chars: 0 };
+export const translatorState = { provider: 'none yet', builtin: 'unchecked', onDevice: 'off', lastError: '', chars: 0 };
 
 const cache = new Map();
 const builtins = new Map();   // "en>pt" -> Translator instance, or 'unavailable'
+
+// ---------- On-device (Bergamot) ----------
+
+const ON_DEVICE_PAIRS = new Set(CONFIG.onDevicePairs);
+let worker = null, workerReady = false, reqId = 0;
+const pending = new Map();
+const listeners = new Set();
+
+// Listen for on-device status changes (used for the download progress on the home screen).
+export const onOnDeviceStatus = fn => listeners.add(fn);
+function setOnDevice(status) {
+  translatorState.onDevice = status;
+  listeners.forEach(fn => fn(status, workerReady));
+}
+
+export function startOnDevice() {
+  if (worker) return;
+  if (!('Worker' in self) || !('DecompressionStream' in self) || !('caches' in self)) {
+    setOnDevice('not supported in this browser');
+    return;
+  }
+  worker = new Worker('translator-worker.js');
+  setOnDevice('loading…');
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'progress') {
+      const mb = n => (n / 1048576).toFixed(0);
+      setOnDevice(data.total ? `downloading ${Math.floor((100 * data.loaded) / data.total)}% (${mb(data.loaded)}/${mb(data.total)} MB)` : `downloading ${mb(data.loaded)} MB`);
+    } else if (data.type === 'ready') {
+      workerReady = true;
+      setOnDevice(`ready (loaded in ${(data.ms / 1000).toFixed(1)} s)`);
+      log('tr', `on-device translator ready in ${data.ms} ms`);
+    } else if (data.type === 'error') {
+      setOnDevice(`error: ${data.message}`);
+      log('tr', `on-device translator failed: ${data.message}`);
+    } else if (data.type === 'result') {
+      const p = pending.get(data.id);
+      if (!p) return;
+      pending.delete(data.id);
+      data.error ? p.reject(new Error(data.error)) : p.resolve(data.text);
+    }
+  };
+  worker.onerror = e => { setOnDevice(`error: ${e.message || 'worker crashed'}`); log('tr', `on-device worker error: ${e.message}`); };
+  worker.postMessage({ type: 'init' });
+}
+
+function viaOnDevice(text, from, to) {
+  const pair = baseLang(from) + baseLang(to);
+  if (!workerReady || !ON_DEVICE_PAIRS.has(pair)) return null;
+  return new Promise((resolve, reject) => {
+    const id = ++reqId;
+    pending.set(id, { resolve, reject });
+    worker.postMessage({ type: 'translate', id, pair, text });
+    setTimeout(() => { if (pending.delete(id)) reject(new Error('on-device timed out')); }, 10000);
+  });
+}
+
+// ---------- translate() ----------
 
 export async function translate(text, from, to) {
   text = (text || '').trim();
@@ -18,6 +78,12 @@ export async function translate(text, from, to) {
 
   let out = null;
   try {
+    out = await viaOnDevice(text, from, to);
+    if (out != null) translatorState.provider = 'on-device';
+  } catch (e) {
+    log('tr', `on-device failed: ${e.message}`);
+  }
+  if (out == null) try {
     out = await viaBuiltin(text, from, to);
     if (out != null) translatorState.provider = 'Chrome built-in';
   } catch (e) {

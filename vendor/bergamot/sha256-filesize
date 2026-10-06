@@ -1,0 +1,8 @@
+dad40ec05e6e26f6df56aa37f0d3a208adcd5d35d3347e0f9a8a267c89d4f947  bergamot-translator-worker-without-wormhole.wasm
+5351f9fd20eb212756d7fddd4a07a47bd080b4b7067b2d4ae64115a70847fce5  bergamot-translator-worker-without-wormhole.js
+  84 -rw-r--r-- 1 root root   82410 Apr 28 14:36 bergamot-translator-worker-without-wormhole.js
+5056 -rwxr-xr-x 1 root root 5175863 Apr 28 14:36 bergamot-translator-worker-without-wormhole.wasm
+5e24a3bbe358a14d9437c12787b7020c293243d46c72412e929d151cb1926fa1  bergamot-translator-worker-with-wormhole.wasm
+154c2170f52c2bc2f412ced3bcab88990345ea5879ee9867856e25a8273faa78  bergamot-translator-worker-with-wormhole.js
+  84 -rw-r--r-- 1 root root   82452 Apr 28 14:36 bergamot-translator-worker-with-wormhole.js
+5056 -rwxr-xr-x 1 root root 5176781 Apr 28 14:36 bergamot-translator-worker-with-wormhole.wasm

@@ -22,6 +22,7 @@ const ROWS = [
   ['route', 'Route'],
   ['rttMs', 'Round trip (ms)'],
   ['translation', 'Translation provider'],
+  ['onDevice', 'On-device translator'],
   ['trLastError', 'Last translation error'],
   ['wakeLock', 'Screen kept awake'],
 ];
@@ -36,6 +37,7 @@ function badness(key, v) {
   if (key === 'ice' && /failed|disconnected/.test(s)) return 'bad';
   if (key === 'route' && s.startsWith('TURN')) return 'warn';
   if (key === 'signalling' && s !== 'open') return 'warn';
+  if (key === 'onDevice') return s.startsWith('ready') ? 'good' : /error|not supported/.test(s) ? 'bad' : '';
   if (s === 'yes' || s === 'open' || s === 'connected' || s === 'completed' || s === 'listening') return 'good';
   return '';
 }
