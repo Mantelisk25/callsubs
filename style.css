@@ -55,10 +55,11 @@ button.small { padding: 6px 12px; font-size: 13px; }
   transform: scaleX(-1); background: #222; z-index: 3;
 }
 
-.status {
-  position: absolute; top: calc(14px + var(--safe-t)); left: 12px; right: calc(28vw + 24px);
-  background: var(--panel); padding: 8px 12px; border-radius: 10px; font-size: 14px; z-index: 3;
+.top-info {
+  position: absolute; top: calc(14px + var(--safe-t)); left: 12px; right: calc(28vw + 24px); z-index: 3;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
 }
+.status { background: var(--panel); padding: 8px 12px; border-radius: 10px; font-size: 14px; }
 
 .card {
   position: absolute; left: 16px; right: 16px; top: 30%; z-index: 4;
@@ -107,7 +108,6 @@ button.small { padding: 6px 12px; font-size: 13px; }
 }
 .ctl .lbl { font-size: 11px; line-height: 1; }
 .substatus {
-  position: absolute; left: 12px; right: calc(28vw + 24px); top: calc(56px + var(--safe-t)); z-index: 3;
   background: var(--panel); padding: 6px 10px; border-radius: 10px; font-size: 13px;
 }
 .ctl svg, .ptt svg { width: 26px; height: 26px; fill: currentColor; }
@@ -119,7 +119,12 @@ button.small { padding: 6px 12px; font-size: 13px; }
   display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.16);
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-.ptt { padding: 16px 24px; font-size: 17px; font-weight: 600; background: #238636; }
+.ptt {
+  position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translateX(-50%);
+  padding: 16px 28px; font-size: 17px; font-weight: 600; background: #238636; white-space: nowrap;
+  touch-action: none;
+}
+.ptt-mode #subs { bottom: calc(150px + var(--safe-b)); }
 .ptt.active { background: #3fb950; color: #000; }
 
 /* Diagnostics */

@@ -112,6 +112,10 @@ async function startCall() {
   watchTrack(call.audioTrack);
 
   setupSTT();
+  // Phones give the mic to one user at a time, so continuous subtitles can't run during a call
+  // (confirmed on a Pixel). Start them in hold-to-talk; computers stay continuous.
+  // Switchable in Info -> "Mode".
+  if (stt?.isSupported && (ENV.ios || /Android/.test(ENV.browser))) setMode('ptt');
   call.open();
   if (role === 'host') showShare();
   requestWakeLock();
@@ -445,7 +449,7 @@ function setMode(m) {
   mode = m;
   $('dMode').textContent = `Mode: ${m === 'ptt' ? 'push-to-talk' : 'continuous'}`;
   $('btnPtt').hidden = m !== 'ptt';
-  $('btnMic').hidden = m === 'ptt';
+  $('call').classList.toggle('ptt-mode', m === 'ptt');
   stt?.stop();
   if (m === 'continuous') { fallbackStep = 0; startListening(); }
   log('app', `mode: ${m}`);
