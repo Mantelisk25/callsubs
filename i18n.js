@@ -1,0 +1,89 @@
+// UI strings. Host UI is English, guest UI is Brazilian Portuguese (override with ?ui=en|pt).
+// The diagnostics panel stays in English on both sides.
+
+const STRINGS = {
+  en: {
+    tagline: 'Video calls with live translated subtitles',
+    newCall: 'New call',
+    joinCall: 'Join call',
+    rejoin: 'Rejoin call',
+    starting: 'Starting camera…',
+    waiting: 'Waiting for the other person to join…',
+    connecting: 'Connecting…',
+    hostAway: 'Waiting for the call to be opened…',
+    reconnecting: 'Reconnecting…',
+    signalError: 'Lost the connection to the signalling server. Check your internet.',
+    error: 'Something went wrong. Open diagnostics for details.',
+    lost: 'Connection lost.',
+    reconnect: 'Reconnect',
+    shareTitle: 'Send this link',
+    share: 'Share',
+    copy: 'Copy',
+    copied: 'Copied!',
+    tapSound: 'Tap to turn on sound',
+    mediaDenied: 'Camera/microphone blocked. Allow access in the browser settings, then reload.',
+    noDevice: 'No microphone found on this device.',
+    sttUnsupported: 'Speech recognition isn’t available in this browser. The call works, but your speech won’t be subtitled.',
+    useSafari: 'This browser can’t do speech recognition. Open the link in Safari to get subtitles.',
+    sttBlocked: 'Speech recognition was blocked or needs a tap to start.',
+    enableSubs: 'Enable subtitles',
+    iosDictation: 'Speech recognition is off. Turn on Dictation (Settings › General › Keyboard) and Siri, then reload.',
+    audioCapture: 'The microphone is busy, so subtitles may stop. Try “Fix mic” in diagnostics.',
+    iceFailed: 'The video connection failed. A TURN server is probably needed (see README).',
+    trFailed: '(translation unavailable)',
+    ended: 'Call ended',
+    otherEnded: 'The other person ended the call.',
+    holdToTalk: 'Hold to talk',
+    noHttps: 'Open this page over HTTPS to use the camera and microphone.',
+    noPeer: 'Couldn’t load the call library. Check your internet and reload.',
+  },
+  pt: {
+    tagline: 'Chamadas de vídeo com legendas traduzidas ao vivo',
+    newCall: 'Nova chamada',
+    joinCall: 'Entrar na chamada',
+    rejoin: 'Voltar à chamada',
+    starting: 'Iniciando a câmera…',
+    waiting: 'Aguardando a outra pessoa entrar…',
+    connecting: 'Conectando…',
+    hostAway: 'Aguardando a chamada ser aberta…',
+    reconnecting: 'Reconectando…',
+    signalError: 'A conexão com o servidor caiu. Verifique sua internet.',
+    error: 'Algo deu errado. Abra o diagnóstico para ver os detalhes.',
+    lost: 'Conexão perdida.',
+    reconnect: 'Reconectar',
+    shareTitle: 'Envie este link',
+    share: 'Compartilhar',
+    copy: 'Copiar',
+    copied: 'Copiado!',
+    tapSound: 'Toque para ativar o som',
+    noDevice: 'Nenhum microfone encontrado neste aparelho.',
+    mediaDenied: 'Câmera/microfone bloqueados. Permita o acesso nas configurações do navegador e recarregue a página.',
+    sttUnsupported: 'O reconhecimento de voz não está disponível neste navegador. A chamada funciona, mas sua fala não terá legendas.',
+    useSafari: 'Este navegador não faz reconhecimento de voz. Abra o link no Safari para ter legendas.',
+    sttBlocked: 'O reconhecimento de voz foi bloqueado ou precisa de um toque para começar.',
+    enableSubs: 'Ativar legendas',
+    iosDictation: 'O reconhecimento de voz está desativado. Ative o Ditado (Ajustes › Geral › Teclado) e a Siri, depois recarregue.',
+    audioCapture: 'O microfone está ocupado e as legendas podem parar. Tente “Fix mic” no diagnóstico.',
+    iceFailed: 'A conexão de vídeo falhou. Provavelmente é preciso um servidor TURN.',
+    trFailed: '(tradução indisponível)',
+    ended: 'Chamada encerrada',
+    otherEnded: 'A outra pessoa encerrou a chamada.',
+    holdToTalk: 'Segure para falar',
+    noHttps: 'Abra esta página via HTTPS para usar câmera e microfone.',
+    noPeer: 'Não foi possível carregar a chamada. Verifique sua internet e recarregue.',
+  },
+};
+
+let lang = 'en';
+
+export function setLang(l) {
+  lang = STRINGS[l] ? l : 'en';
+  document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
+}
+
+export const t = key => STRINGS[lang][key] ?? STRINGS.en[key] ?? key;
+
+export function applyI18n(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  root.querySelectorAll('[data-i18n-label]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
+}
